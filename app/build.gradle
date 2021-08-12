@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'kotlin-android'
 }
 android {
     compileSdk 30
@@ -42,6 +43,9 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 
 //    implementation 'com.groupdocs:groupdocs-viewer-cloud:21.8'
-//    implementation 'com.groupdocs:groupdocs-viewer-cloud-android:21.8'
-    implementation 'com.groupdocs:groupdocs-viewer-cloud:21.8'
+    implementation 'com.groupdocs:groupdocs-viewer-cloud-android:21.8'
+
+
+    implementation "com.anggrayudi:storage:0.12.0"
+    implementation 'commons-io:commons-io:2.6'
 }

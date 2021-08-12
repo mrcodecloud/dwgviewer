@@ -16,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.os.FileUtils;
 import android.os.PersistableBundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -37,6 +38,8 @@ import com.groupdocs.cloud.viewer.client.*;
 import com.groupdocs.cloud.viewer.model.*;
 import com.groupdocs.cloud.viewer.api.InfoApi;
 
+import java.io.File;
+
 public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
@@ -44,8 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> someActivityResultLauncher;
 
     private String TAG = MainActivity.class.getName();
-    String appSid = "74ca687c-6420-4ff0-aaec-b71de743ef6b";
-    String appKey = "bb168bd73a11c3d1078f7820d93f10ec";
+    String appSid = "e24b6714-9768-480a-88d1-28b6929dca59";
+    String appKey = "0495f2872fa0fc29e239fe6df3c30101";
     ViewApi apiInstance;
 //    Uri uri;
 
@@ -71,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         Configuration configuration = new Configuration(appSid, appKey);
+        InfoApi infoApi = new InfoApi(configuration);
         apiInstance = new ViewApi(configuration);
         someActivityResultLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -104,9 +108,13 @@ public class MainActivity extends AppCompatActivity {
                                         renderOptions.setCadOptions(cadOptions);
                                         viewOptions.setRenderOptions(renderOptions);
 
-                                        ViewResult response = apiInstance.createView(new CreateViewRequest(viewOptions));
+//                                        ViewResult response = apiInstance.createView(new CreateViewRequest(viewOptions));
 
-                                        Log.e(TAG,"RenderLayers completed: " + response.getPages().size());
+//                                        Log.e(TAG,"RenderLayers completed: " + response.getPages().size());
+                                        FormatsResult response = infoApi.getSupportedFileFormats();
+                                        for (Format format : response.getFormats()) {
+                                            Log.e(TAG,format.getFileFormat());
+                                        }
 
                                     } catch (ApiException e) {
                                         Log.e(TAG, "Exception: " + e.getMessage());
@@ -119,6 +127,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
+//        AutoCAD Drawing Database File
+//        AutoCAD Drawing Template
+//        Drawing Exchange Format File
 
         Intent chooseFile = new Intent(Intent.ACTION_GET_CONTENT);
         chooseFile.setType("*/*");
