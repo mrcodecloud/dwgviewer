@@ -1,6 +1,5 @@
 package com.it22.myapplication
 
-import android.R.attr
 import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.Context
@@ -19,7 +18,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.core.app.ActivityCompat
 import com.groupdocs.cloud.viewer.api.FileApi
-import com.groupdocs.cloud.viewer.api.InfoApi
 import com.groupdocs.cloud.viewer.api.ViewApi
 import com.groupdocs.cloud.viewer.client.ApiException
 import com.groupdocs.cloud.viewer.client.Configuration
@@ -27,100 +25,61 @@ import com.groupdocs.cloud.viewer.model.*
 import com.groupdocs.cloud.viewer.model.requests.CreateViewRequest
 import org.apache.commons.io.IOUtils
 import java.net.URLEncoder
-import java.util.jar.Manifest
-import com.groupdocs.cloud.viewer.model.requests.DeleteFolderRequest
-
-import com.groupdocs.cloud.viewer.model.requests.ObjectExistsRequest
-
-import com.groupdocs.cloud.viewer.model.requests.MoveFileRequest
-
-import com.groupdocs.cloud.viewer.model.ObjectExist
-
-import com.groupdocs.cloud.viewer.model.requests.CopyFileRequest
-
-import com.groupdocs.cloud.viewer.model.requests.CreateFolderRequest
-import android.R.attr.path
 import android.webkit.*
-
 import com.groupdocs.cloud.viewer.model.requests.UploadFileRequest
 import com.groupdocs.cloud.viewer.model.requests.DownloadFileRequest
-
-import com.groupdocs.cloud.viewer.model.PageView
 import java.io.*
 
-import androidx.annotation.RequiresApi
 import androidx.webkit.WebViewAssetLoader
-import androidx.webkit.WebViewAssetLoader.Builder
-import android.webkit.WebSettings
+import java.nio.channels.FileChannel
+import java.util.*
 
 
-class MainActivity2 : AppCompatActivity() {
+class MainActivity : AppCompatActivity() {
 
     private val TAG = MainActivity::class.java.name
 
-    // Application name: DWGViewer
-//    var appSid = "e24b6714-9768-480a-88d1-28b6929dca59"
-//    var appKey = "0495f2872fa0fc29e239fe6df3c30101"
-
-    // Application name: DWGViewer2
-    var appSid = "2e533f73-1b8f-4317-91cd-bc7fc09cce9d"
-    var appKey = "97ba128a2ba1560368cb6355bb19edd2"
-
+    // GroupDocs API App
+    // Credentials
+    var appSid = "ea9fd6cb-fe05-42e8-947f-51dd76cc94be"
+    var appKey = "0f1bed7558037a5f77c948bf55fd0662"
 
     var apiInstance: ViewApi? = null
     var fileApi: FileApi? = null
     var webview: WebView? = null
     val REQ_CODE_PERMISSION = 10101
-    var someActivityResultLauncher: ActivityResultLauncher<Intent>? = null
+    var dwgFileSelectionActivityResultLauncher: ActivityResultLauncher<Intent>? = null
     val arrayOfPermissions = arrayOf(
         android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
         android.Manifest.permission.READ_EXTERNAL_STORAGE
     )
-
-    //    var webviewurl:String="https://page_1.html"
-    var webviewurl: String =
-        "file:///data/user/0/com.it22.myapplication/cache/sample_page_1-3677118407845233802.html"
-//    var appSid = "e24b6714-9768-480a-88d1-28b6929dca69"
-//    var appKey = "0495f2872fa0fc29e239fe6df3c30121"
+    var webviewurl: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main_new)
+        setContentView(R.layout.activity_main)
         webview = findViewById<WebView>(R.id.webview)
 
-        // Host "files/public/" in app's data directory under:
-        // http://appassets.androidplatform.net/public/...
-        // Host "files/public/" in app's data directory under:
-        // http://appassets.androidplatform.net/public/...
-
-
         val configuration = Configuration(appSid, appKey)
-        val infoApi = InfoApi(configuration)
         apiInstance = ViewApi(configuration)
         fileApi = FileApi(configuration)
 
-        // Request code for selecting a PDF document.
-        val PICK_PDF_FILE = 2
-
-
-        someActivityResultLauncher = registerForActivityResult(
+        dwgFileSelectionActivityResultLauncher = registerForActivityResult(
             StartActivityForResult()
         ) { result ->
             if (result.resultCode == RESULT_OK) {
-                // There are no request codes
                 val data = result.data
                 val uri = data!!.data
                 Thread {
                     try {
+
+                        // Uploading file
                         val filePath = getRealPathFromURI(this, uri!!)
                         val file = File(filePath)
-                        Log.e(TAG, filePath)
-                        Log.e(TAG, this.filesDir.absolutePath)
-                        val fileApiResponse =
-                            fileApi!!.uploadFile(UploadFileRequest(filePath, file, null))
-                        Log.e(TAG, "File Uploaded");
+                        fileApi!!.uploadFile(UploadFileRequest(filePath, file, null))
+                        Log.d(TAG, "File Uploaded");
 
-
+                        // Rendering file
                         val fileInfo = FileInfo()
                         fileInfo.filePath = filePath
                         val viewOptions = ViewOptions()
@@ -133,21 +92,29 @@ class MainActivity2 : AppCompatActivity() {
                         renderOptions.cadOptions = cadOptions
                         viewOptions.renderOptions = renderOptions
                         val response = apiInstance!!.createView(CreateViewRequest(viewOptions))
-                        Log.e(TAG, "RenderLayers completed: " + response.pages.size);
+                        Log.d(TAG, "RenderLayers completed: " + response.pages.size);
 
 
-                        // Download pages
-
-                        // Download pages
+                        // Downloading the rendered file and displaying in the webview
+                        // For DWG Files, number of pages is always 1
+                        // src file is always downloaded in the app cache
+                        // We move the file to app internal storage Downloads folder, using 'renameTo' function
+                        // We can't load the html file from cache to the webview
                         for (pageView in response.getPages()) {
-//                            println("Page: " + pageView.number + " Path in storage: " + pageView.path)
+                            Log.d(TAG, "Starting download")
+
                             val dlRequest = DownloadFileRequest()
                             dlRequest.setpath(pageView.path)
                             val srcFile = fileApi!!.downloadFile(dlRequest)
+
+                            Log.d(TAG, "Completed download")
+
+
                             val dstFile = File(
                                 this.filesDir.absolutePath,
-                                "Downloads/sample_page_" + pageView.number + ".html"
+                                "Downloads/page_" + pageView.number + "_" + Calendar.getInstance().timeInMillis + ".html"
                             )
+
                             if (dstFile.exists()) {
                                 dstFile.delete()
                                 Log.e(TAG, "File already exists")
@@ -156,54 +123,42 @@ class MainActivity2 : AppCompatActivity() {
                             var success = srcFile.renameTo(dstFile)
                             if (!success)
                                 Log.e(TAG, "File wasn't successfully renamed")
-                            Log.e(TAG, "URL: ${webviewurl}")
-                            println("Saved page at: ${dstFile.absolutePath}")
+
+                            Log.d(TAG, "Saved page at: ${dstFile.absolutePath}")
                             webviewurl = Uri.fromFile(dstFile).toString()
-                            webviewurl = webviewurl.replace("%3B", "")
-                            webviewurl =
-                                "https://appassets.androidplatform.net/assets/sample_page_1.html"
-                            webviewurl = "https://appassets.androidplatform.net/sample_page_1.html"
-                            Log.e(TAG, "URL: ${webviewurl}")
                             loadWebView(webviewurl)
                         }
                     } catch (e: ApiException) {
-                        Log.e(TAG, "Exception: " + e.message)
+                        Log.d(TAG, "Exception: " + e.message)
                         e.printStackTrace()
                     }
                 }.start()
-//                loadWebView(webviewurl)
             }
         }
 
         if (!checkPermission(arrayOfPermissions)) {
-            getPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            getPermission(arrayOfPermissions)
         } else {
-//            selectDwgFile()
+            selectDwgFile()
         }
-
-
-        webviewurl = "https://appassets.androidplatform.net/my_downloads/sample_page_1.html"
-        Log.e(TAG, "URL: ${webviewurl}")
-        loadWebView(webviewurl)
-
     }
 
     fun loadWebView(url: String) {
 
-
         webview!!.post(Runnable() {
 
-            val publicDir = File(this.dataDir,"my_downloads")
-           /* val assetLoader: WebViewAssetLoader = Builder()
-                .addPathHandler(
-                    "/assets/",
-                    WebViewAssetLoader.AssetsPathHandler(this)
-                ).build()*/
+            // Following commented code is used for loading HTML files from the app assets
+            /* val assetLoader: WebViewAssetLoader = Builder()
+                 .addPathHandler(
+                     "/assets/",
+                     WebViewAssetLoader.AssetsPathHandler(this)
+                 ).build()*/
 
-             val assetLoader: WebViewAssetLoader = WebViewAssetLoader.Builder()
+            val publicDir = File(this.dataDir, "Downloads")
+            val assetLoader: WebViewAssetLoader = WebViewAssetLoader.Builder()
                 .addPathHandler(
-                    "/my_downloads/",
-                    WebViewAssetLoader.InternalStoragePathHandler(this,publicDir)
+                    "/Downloads/",
+                    WebViewAssetLoader.InternalStoragePathHandler(this, publicDir)
                 ).build()
 
 
@@ -213,39 +168,21 @@ class MainActivity2 : AppCompatActivity() {
                     view: WebView,
                     request: WebResourceRequest
                 ): WebResourceResponse? {
-                    Log.e(TAG, "Intercepting requests ${request.url}")
+                    Log.d(TAG, "Intercepting requests ${request.url}")
                     return assetLoader.shouldInterceptRequest(request.url);
                 }
             }
 
-//            val webViewSettings: WebSettings = webview!!.getSettings()
-            // Setting this off for security. Off by default for SDK versions >= 16.
-            // Setting this off for security. Off by default for SDK versions >= 16.
-//        webViewSettings.allowFileAccessFromFileURLs = false
-            // Off by default, deprecated for SDK versions >= 30.
-            // Off by default, deprecated for SDK versions >= 30.
-//        webViewSettings.allowUniversalAccessFromFileURLs = false
-            // Keeping these off is less critical but still a good idea, especially if your app is not
-            // using file:// or content:// URLs.
-            // Keeping these off is less critical but still a good idea, especially if your app is not
-            // using file:// or content:// URLs.
-//            webViewSettings.allowFileAccess = false
-//            webViewSettings.allowContentAccess = false
-//
-            webview!!.settings.allowFileAccess = true
-            webview!!.loadUrl(url )
-//            webview!!.loadDataWithBaseURL(url,url,null,null,null)
+            Log.d(TAG, "Loading URL: ${webviewurl}")
+            webview!!.loadUrl(url)
         });
     }
 
     fun selectDwgFile() {
-
-
-//        var chooseFile = Intent(Intent.ACTION_GET_CONTENT)
         var chooseFile = Intent(Intent.ACTION_OPEN_DOCUMENT)
         chooseFile.type = "*/*"
         chooseFile = Intent.createChooser(chooseFile, "Choose a DWG file")
-        someActivityResultLauncher!!.launch(chooseFile)
+        dwgFileSelectionActivityResultLauncher!!.launch(chooseFile)
     }
 
     @SuppressLint("NewApi")
@@ -375,7 +312,6 @@ class MainActivity2 : AppCompatActivity() {
 
         returnCursor.moveToFirst()
         val name: String = (returnCursor.getString(nameIndex))
-//        val size = Long.toString(returnCursor.getLong(sizeIndex))
         val file = File(
             context.cacheDir,
             URLEncoder.encode(name, "utf-8")
@@ -403,17 +339,17 @@ class MainActivity2 : AppCompatActivity() {
                 }
             }
 
-            Log.e("File Size", "Size " + file.length())
+            Log.d("File Size", "Size " + file.length())
             inputStream.close()
-            Log.e("File Path", "Path " + file.path)
-            Log.e("File Size", "Size " + file.length())
+            Log.d("File Path", "Path " + file.path)
+            Log.d("File Size", "Size " + file.length())
         } catch (e: Exception) {
-            Log.e("Exception", e.message.toString())
+            Log.d("Exception", e.message.toString())
         }
         return file.path
     }
 
-    private fun copyFileToInternalStorage(mContext: Context, uri: Uri, newDirName: String): String {
+    fun copyFileToInternalStorage(mContext: Context, uri: Uri, newDirName: String): String {
         val returnCursor: Cursor? = mContext.contentResolver.query(
             uri,
             arrayOf(
@@ -463,7 +399,7 @@ class MainActivity2 : AppCompatActivity() {
             inputStream.close()
             outputStream.close()
         } catch (e: java.lang.Exception) {
-            Log.e("Exception", e.message!!)
+            Log.d("Exception", e.message!!)
         }
         return output.path
     }
@@ -472,8 +408,8 @@ class MainActivity2 : AppCompatActivity() {
         ActivityCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun getPermission(permission: String) {
-        ActivityCompat.requestPermissions(this, arrayOf(permission), REQ_CODE_PERMISSION)
+    fun getPermission(permissions: Array<String>) {
+        ActivityCompat.requestPermissions(this, permissions, REQ_CODE_PERMISSION)
     }
 
     override fun onRequestPermissionsResult(
@@ -487,6 +423,19 @@ class MainActivity2 : AppCompatActivity() {
             Toast.makeText(this, "Permission Denied", Toast.LENGTH_SHORT).show()
         }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
+    @Throws(IOException::class)
+    fun copy(src: File?, dst: File?) {
+        Runnable {
+            val inStream = FileInputStream(File(cacheDir, src?.name))
+            val outStream = FileOutputStream(File(filesDir, dst?.name))
+            val inChannel: FileChannel = inStream.channel
+            val outChannel: FileChannel = outStream.channel
+            inChannel.transferTo(0, inChannel.size(), outChannel)
+            inStream.close()
+            outStream.close()
+        }
     }
 
 

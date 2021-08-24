@@ -3,13 +3,13 @@ plugins {
     id 'kotlin-android'
 }
 android {
-    compileSdk 30
+    compileSdk 29
 //    buildToolsVersion "30.0.3"
 
     defaultConfig {
         applicationId "com.it22.myapplication"
         minSdk 24
-        targetSdk 30
+        targetSdk 29
         versionCode 1
         versionName "1.0"
 
